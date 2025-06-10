@@ -5,6 +5,9 @@
       "expo-router"
     ],
     "name": "meshwar-mobile",
-    "slug": "meshwar-mobile"
+    "slug": "meshwar-mobile",
+    "web": {
+      "bundler": "metro"
+    }
   }
 }
