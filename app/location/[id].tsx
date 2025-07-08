@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router, useRouter } from 'expo-router';
@@ -41,6 +43,8 @@ export default function LocationDetailScreen() {
   const router = useRouter();
   const [location, setLocation] = useState<Location | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
   const { colors: themeColors } = useTheme();
   const { toggleFavorite, isFavorite } = useFavorites();
 
@@ -124,6 +128,16 @@ export default function LocationDetailScreen() {
     }
   };
 
+  const handleImagePress = (imageUrl: string) => {
+    setSelectedImage(imageUrl);
+    setShowImageModal(true);
+  };
+
+  const closeImageModal = () => {
+    setShowImageModal(false);
+    setSelectedImage(null);
+  };
+
   if (loading) {
     return (
       <MainLayout title="Location Details" showBack onBackPress={handleGoBack}>
@@ -168,24 +182,8 @@ export default function LocationDetailScreen() {
     >
       <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.content}>
-          {/* Images Section */}
-          {location.images && location.images.length > 0 && (
-            <View style={styles.imagesSection}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {location.images.map((image, index) => (
-                  <View key={index} style={styles.imageContainer}>
-                    <Image
-                      source={{ uri: image }}
-                      style={styles.locationImage}
-                      resizeMode="cover"
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Header Section */}
+          
+          {/* Header Section with Icon - NOW FIRST */}
           <View style={[styles.headerCard, { backgroundColor: themeColors.surface }]}>
             <View style={styles.titleRow}>
               <View style={styles.titleContainer}>
@@ -205,6 +203,34 @@ export default function LocationDetailScreen() {
               {location.description}
             </Text>
           </View>
+
+          {/* Images Section - NOW SECOND */}
+          {location.images && location.images.length > 0 && (
+            <View style={styles.imagesSection}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginLeft: spacing.md, marginBottom: spacing.sm }]}>
+                Gallery
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {location.images.map((image, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={styles.imageContainer}
+                    onPress={() => handleImagePress(image)}
+                    activeOpacity={0.8}
+                  >
+                    <Image
+                      source={{ uri: image }}
+                      style={styles.locationImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.imageOverlay}>
+                      <Ionicons name="expand-outline" size={24} color="white" />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Location Details */}
           <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
@@ -268,9 +294,43 @@ export default function LocationDetailScreen() {
          
         </View>
       </ScrollView>
+
+      {/* Image Modal */}
+      <Modal
+        visible={showImageModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={closeImageModal}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalBackground}
+            onPress={closeImageModal}
+          >
+            <View style={styles.modalContent}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={closeImageModal}
+              >
+                <Ionicons name="close" size={30} color="white" />
+              </TouchableOpacity>
+              
+              {selectedImage && (
+                <Image
+                  source={{ uri: selectedImage }}
+                  style={styles.fullScreenImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </MainLayout>
   );
 }
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   container: {
@@ -305,11 +365,20 @@ const styles = StyleSheet.create({
   imageContainer: {
     marginRight: spacing.md,
     marginLeft: spacing.md,
+    position: 'relative',
   },
   locationImage: {
-    width: 400,
-    height: 300,
+    width: 250, // Made smaller to fit better
+    height: 200, // Made smaller to fit better
     borderRadius: borderRadius.md,
+  },
+  imageOverlay: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs,
   },
   headerCard: {
     padding: spacing.lg,
@@ -330,8 +399,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   iconImage: {
-    width: 300,
-    height: 300,
+    width: 200, // Made smaller
+    height: 200, // Made smaller
     borderRadius: borderRadius.sm,
     alignSelf: 'center',
   },
@@ -386,5 +455,35 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     borderRadius: borderRadius.sm,
     backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+  },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: spacing.sm,
+  },
+  fullScreenImage: {
+    width: screenWidth,
+    height: screenHeight * 0.8,
   },
 }); 

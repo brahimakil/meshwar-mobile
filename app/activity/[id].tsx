@@ -19,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { colors, spacing, typography, borderRadius } from '../../themes';
 import { Timestamp } from 'firebase/firestore';
+import Map from '../../components/Map';
 
 interface Activity {
   id: string;
@@ -299,6 +300,29 @@ export default function ActivityDetailScreen() {
               {activity.description}
             </Text>
           </View>
+
+          {/* MAP SECTION - ADD THIS NEW SECTION */}
+          {activity.locations && activity.locations.length > 0 && (
+            <View style={[styles.mapCard, { backgroundColor: themeColors.surface }]}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                Activity Locations
+              </Text>
+              <Text style={[styles.mapDescription, { color: themeColors.textSecondary }]}>
+                {activity.locations.length === 1 
+                  ? 'This activity takes place at one location'
+                  : `This activity spans ${activity.locations.length} locations`
+                }
+              </Text>
+              <View style={styles.mapContainer}>
+                <Map
+                  style={styles.activityMap}
+                  showActivities={true}
+                  showLocations={true}
+                  activityId={activity.id}
+                />
+              </View>
+            </View>
+          )}
 
           {/* Details Section */}
           <View style={[styles.detailsCard, { backgroundColor: themeColors.surface }]}>
@@ -681,5 +705,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     ...typography.button,
     fontWeight: 'bold',
+  },
+  mapCard: {
+    padding: spacing.lg,
+    borderRadius: borderRadius.md,
+    gap: spacing.md,
+  },
+  mapDescription: {
+    ...typography.caption,
+    marginBottom: spacing.sm,
+  },
+  mapContainer: {
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  activityMap: {
+    height: 250,
+    width: '100%',
   },
 });

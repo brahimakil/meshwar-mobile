@@ -35,6 +35,7 @@ interface MapProps {
   showActivities?: boolean;
   showLocations?: boolean;
   selectedLocationId?: string;
+  activityId?: string;
 }
 
 // Lebanon coordinates (center of the country)
@@ -45,7 +46,13 @@ const LEBANON_COORDINATES = {
   longitudeDelta: 1.5,
 };
 
-export default function Map({ style, showActivities = true, showLocations = true, selectedLocationId }: MapProps) {
+export default function Map({ 
+  style, 
+  showActivities = true, 
+  showLocations = true, 
+  selectedLocationId,
+  activityId 
+}: MapProps) {
   const [locations, setLocations] = useState<Location[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,43 +61,78 @@ export default function Map({ style, showActivities = true, showLocations = true
 
   useEffect(() => {
     fetchMapData();
-  }, []);
+  }, [activityId]);
 
   const fetchMapData = async () => {
     try {
       setLoading(true);
       
-      // Fetch locations
-      if (showLocations) {
-        const locationsQuery = query(
-          collection(db, 'locations'),
-          where('isActive', '==', true)
-        );
-        const locationsSnapshot = await getDocs(locationsQuery);
-        const locationsData = locationsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Location[];
-        setLocations(locationsData);
-      }
+      if (activityId) {
+        // SPECIFIC ACTIVITY MODE - show only this activity's locations
+        const activityDoc = await getDoc(doc(db, 'activities', activityId));
+        if (activityDoc.exists()) {
+          const activityData = { id: activityDoc.id, ...activityDoc.data() } as Activity;
+          setActivities([activityData]);
+          
+          // Fetch only the locations for this activity
+          if (activityData.locations && activityData.locations.length > 0) {
+            const activityLocations: Location[] = [];
+            for (const locationId of activityData.locations) {
+              try {
+                const locationDoc = await getDoc(doc(db, 'locations', locationId));
+                if (locationDoc.exists()) {
+                  activityLocations.push({ id: locationDoc.id, ...locationDoc.data() } as Location);
+                }
+              } catch (locError) {
+                console.warn(`Failed to fetch location ${locationId}:`, locError);
+              }
+            }
+            setLocations(activityLocations);
+            
+            // Process routes for this specific activity
+            const routes = await processActivityRoutes([activityData], activityLocations);
+            setActivityRoutes(routes);
+          }
+        }
+      } else {
+        // GENERAL MODE - show all locations and activities
+        let currentLocations: Location[] = [];
+        
+        // Fetch locations
+        if (showLocations) {
+          const locationsQuery = query(
+            collection(db, 'locations'),
+            where('isActive', '==', true)
+          );
+          const locationsSnapshot = await getDocs(locationsQuery);
+          currentLocations = locationsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Location[];
+          setLocations(currentLocations);
+        }
 
-      // Fetch activities
-      if (showActivities) {
-        const activitiesQuery = query(
-          collection(db, 'activities'),
-          where('isActive', '==', true),
-          where('isExpired', '==', false)
-        );
-        const activitiesSnapshot = await getDocs(activitiesQuery);
-        const activitiesData = activitiesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as Activity[];
-        setActivities(activitiesData);
+        // Fetch activities
+        if (showActivities) {
+          const activitiesQuery = query(
+            collection(db, 'activities'),
+            where('isActive', '==', true),
+            where('isExpired', '==', false)
+          );
+          const activitiesSnapshot = await getDocs(activitiesQuery);
+          const activitiesData = activitiesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Activity[];
+          setActivities(activitiesData);
 
-        // Process activity routes for multi-location activities
-        const routes = await processActivityRoutes(activitiesData, locationsData.length > 0 ? locationsData : await getLocationsForActivities(activitiesData));
-        setActivityRoutes(routes);
+          // Process activity routes for multi-location activities
+          const routes = await processActivityRoutes(
+            activitiesData, 
+            currentLocations.length > 0 ? currentLocations : await getLocationsForActivities(activitiesData)
+          );
+          setActivityRoutes(routes);
+        }
       }
     } catch (error) {
       console.error('Error fetching map data:', error);
@@ -204,28 +246,18 @@ export default function Map({ style, showActivities = true, showLocations = true
 
   const Legend = () => (
     <View style={[styles.legend, { backgroundColor: themeColors.surface }]}>
-      <Text style={[styles.legendTitle, { color: themeColors.text }]}>Map Legend</Text>
-      
       {showLocations && (
         <View style={styles.legendItem}>
           <View style={[styles.legendMarker, { backgroundColor: '#4CAF50' }]} />
-          <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Locations</Text>
+          <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Places</Text>
         </View>
       )}
       
       {showActivities && (
-        <>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendLine, { backgroundColor: '#FF6B35' }]} />
-            <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Multi-location Activities</Text>
-          </View>
-          
-          <View style={styles.legendItem}>
-            <Text style={[styles.legendText, { color: themeColors.textSecondary, fontSize: 10 }]}>
-              📍 Single-location activities are shown at location markers
-            </Text>
-          </View>
-        </>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendMarker, { backgroundColor: '#FF9800' }]} />
+          <Text style={[styles.legendText, { color: themeColors.textSecondary }]}>Activities</Text>
+        </View>
       )}
     </View>
   );
@@ -363,19 +395,20 @@ const styles = StyleSheet.create({
   },
   legend: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: borderRadius.sm,
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 6,
+    borderRadius: 6,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    minWidth: 120,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+    maxWidth: 80,
   },
   legendTitle: {
     ...typography.caption,
@@ -385,13 +418,13 @@ const styles = StyleSheet.create({
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 2,
+    marginVertical: 1,
   },
   legendMarker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: spacing.xs,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 4,
   },
   legendLine: {
     width: 16,
@@ -400,8 +433,9 @@ const styles = StyleSheet.create({
     borderRadius: 1.5,
   },
   legendText: {
-    ...typography.caption,
-    fontSize: 11,
+    fontSize: 9,
+    fontWeight: '500',
+    color: '#666',
   },
   customMarker: {
     width: 30,

@@ -125,10 +125,6 @@ export default function BookingsScreen() {
     fetchBookings();
   };
 
-  const handleBookingPress = (bookingId: string) => {
-    router.push(`/booking/${bookingId}`);
-  };
-
   const formatDate = (dateValue: Timestamp | string) => {
     let date: Date;
     
@@ -224,7 +220,7 @@ export default function BookingsScreen() {
     
     return (
       <View style={[styles.bookingCard, { backgroundColor: themeColors.surface }]}>
-        <TouchableOpacity style={styles.bookingContent}>
+        <View style={styles.bookingContent}>
           {/* Header with Status */}
           <View style={styles.bookingHeader}>
             <View style={styles.statusContainer}>
@@ -285,17 +281,8 @@ export default function BookingsScreen() {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
-        
-        {/* Action Button */}
-        <View style={styles.actionContainer}>
-          <TouchableOpacity 
-            onPress={() => handleBookingPress(item.id)}
-            style={styles.actionButton}
-          >
-            <Ionicons name="chevron-forward" size={20} color={themeColors.textSecondary} />
-          </TouchableOpacity>
         </View>
+        
       </View>
     );
   };
@@ -378,7 +365,6 @@ const styles = StyleSheet.create({
   },
   bookingContent: {
     flex: 1,
-    marginRight: spacing.md,
   },
   bookingHeader: {
     flexDirection: 'row',
@@ -424,14 +410,6 @@ const styles = StyleSheet.create({
   detailText: {
     ...typography.caption,
     fontSize: 12,
-  },
-  actionContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingLeft: spacing.sm,
-  },
-  actionButton: {
-    padding: spacing.xs,
   },
   separator: {
     height: 1,

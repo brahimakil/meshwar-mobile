@@ -30,6 +30,13 @@ export default function RootLayout() {
                     presentation: 'card'
                   }} 
                 />
+                <Stack.Screen 
+                  name="category/[id]" 
+                  options={{ 
+                    headerShown: false,
+                    presentation: 'card'
+                  }} 
+                />
               </Stack>
             </FavoritesProvider>
           </AuthProvider>
